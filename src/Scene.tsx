@@ -4,7 +4,7 @@ import { TextureLoader } from 'three/src/loaders/TextureLoader'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader';
 import { useMask, useGLTF, Float, Instance, Instances, CameraControls, Sphere as SphereObject, Cylinder, Box } from '@react-three/drei'
 import { Lightformer, Environment, RandomizedLight, AccumulativeShadows, MeshTransmissionMaterial } from '@react-three/drei'
-import { AdditiveBlending, ExtrudeGeometry, Group, MathUtils, Mesh, Points } from 'three'
+import { AdditiveBlending, ExtrudeGeometry, Group, Material, MathUtils, Mesh, Points } from 'three'
 
 type SphereConfig = [
   number, string, number, [number, number, number]
@@ -72,9 +72,9 @@ const CustomGeometryParticles = ({ count = 1000 }: { count?: number }) => {
       const theta = MathUtils.randFloatSpread(360);
       const phi = MathUtils.randFloatSpread(360);
 
-      let x = distance * Math.sin(theta) * Math.cos(phi)
-      let y = distance * Math.sin(theta) * Math.sin(phi);
-      let z = distance * Math.cos(theta);
+      const x = distance * Math.sin(theta) * Math.cos(phi)
+      const y = distance * Math.sin(theta) * Math.sin(phi);
+      const z = distance * Math.cos(theta);
 
       positions.set([x, y, z], i * 3);
     }
@@ -95,7 +95,7 @@ const CustomGeometryParticles = ({ count = 1000 }: { count?: number }) => {
     if (!points.current) return;
 
     const { clock } = state;
-    points.current.material.uniforms.uTime.value = clock.elapsedTime;
+    (points.current.material as Material & { uniforms: typeof uniforms }).uniforms.uTime.value = clock.elapsedTime;
   });
 
   return (
@@ -130,42 +130,42 @@ const CustomGeometryParticles = ({ count = 1000 }: { count?: number }) => {
         )}
         vertexShader={(
           `
-uniform float uTime;
-uniform float uRadius;
+          uniform float uTime;
+          uniform float uRadius;
 
-varying float vDistance;
+          varying float vDistance;
 
-// Source: https://github.com/dmnsgn/glsl-rotate/blob/main/rotation-3d-y.glsl.js
-mat3 rotation3dY(float angle) {
-  float s = sin(angle);
-  float c = cos(angle);
-  return mat3(
-    c, 0.0, -s,
-    0.0, 1.0, 0.0,
-    s, 0.0, c
-  );
-}
+          // Source: https://github.com/dmnsgn/glsl-rotate/blob/main/rotation-3d-y.glsl.js
+          mat3 rotation3dY(float angle) {
+            float s = sin(angle);
+            float c = cos(angle);
+            return mat3(
+              c, 0.0, -s,
+              0.0, 1.0, 0.0,
+              s, 0.0, c
+            );
+          }
 
-void main() {
-  float distanceFactor = pow(uRadius - distance(position, vec3(0.0)), 1.5);
-  float size = 200.0;
+          void main() {
+            float distanceFactor = pow(uRadius - distance(position, vec3(0.0)), 1.5);
+            float size = 200.0;
 
-  // Apply rotation and downward motion
-  vec3 particlePosition = position * rotation3dY(uTime * 0.3 * distanceFactor);
-  particlePosition.y -= uTime * 0.05; // Slowly move particles downward
+            // Apply rotation and downward motion
+            vec3 particlePosition = position * rotation3dY(uTime * 0.3 * distanceFactor);
+            particlePosition.y -= uTime * 0.05; // Slowly move particles downward
 
-  vDistance = distanceFactor;
+            vDistance = distanceFactor;
 
-  vec4 modelPosition = modelMatrix * vec4(particlePosition, 1.0);
-  vec4 viewPosition = viewMatrix * modelPosition;
-  vec4 projectedPosition = projectionMatrix * viewPosition;
+            vec4 modelPosition = modelMatrix * vec4(particlePosition, 1.0);
+            vec4 viewPosition = viewMatrix * modelPosition;
+            vec4 projectedPosition = projectionMatrix * viewPosition;
 
-  gl_Position = projectedPosition;
+            gl_Position = projectedPosition;
 
-  gl_PointSize = size;
-  // Size attenuation
-  gl_PointSize *= (1.0 / -viewPosition.z);
-}
+            gl_PointSize = size;
+            // Size attenuation
+            gl_PointSize *= (1.0 / -viewPosition.z);
+          }
           `
         )}
         uniforms={uniforms}
